@@ -280,6 +280,26 @@ export interface UsageWindow {
   readonly starts_at: string | null;
 }
 
+/** One-off usage limit resets available to refill limits */
+export interface UsageResets {
+  /** How many one-off rate limit resets are currently available to use */
+  readonly available: number;
+  /** ISO 8601 when the soonest available reset expires; null when no deadline */
+  readonly expires_at: string | null;
+}
+
+/** Usage credits or on-demand spend outside of subscription limits */
+export interface UsageCredits {
+  /** Formatted summary or balance, e.g. "£12.19 / £15.39", "$31.84", "Unlimited" */
+  readonly balance: string;
+  /** Share of credit limit used (0 to 100), when credits have a monthly cap or spend limit */
+  readonly used_percent?: number | null;
+  /** ISO 8601 reset/expiry time, if applicable */
+  readonly resets_at?: string | null;
+  /** Label for the credit type, e.g. "Extra usage", "Usage credits", "Flex credits" */
+  readonly label?: string | null;
+}
+
 /**
  * Why a provider's numbers are missing or old: its sign-in expired or was refused; the provider
  * asked to slow down; the request failed; the macOS keychain holding the sign-in could not be
@@ -301,6 +321,10 @@ export interface ProviderUsage {
   readonly plan: string | null;
   /** the last numbers read; kept through a later failure, which `problem` then names */
   readonly windows: readonly UsageWindow[];
+  /** One-off usage limit resets available to refill limits */
+  readonly resets?: UsageResets | null;
+  /** Usage credits or on-demand spend outside of subscription limits */
+  readonly credits?: UsageCredits | null;
   readonly problem: UsageProblem | null;
   /** ISO 8601 time `windows` were read; null when they never were */
   readonly checked_at: string | null;

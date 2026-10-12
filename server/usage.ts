@@ -21,7 +21,7 @@ import { closeSync, mkdtempSync, openSync, readdirSync, readSync, rmSync, writeF
 import { open, type FileHandle } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ProviderUsage, UsageProblem, UsageProviderId, UsageReport, UsageWindow } from "../shared/protocol.ts";
+import type { ProviderUsage, UsageCredits, UsageProblem, UsageProviderId, UsageReport, UsageResets, UsageWindow } from "../shared/protocol.ts";
 import { jsonResponse } from "./http.ts";
 
 export const FRESH_MS = 5 * 60_000;
@@ -81,6 +81,8 @@ type Found = { source: string } & (SignIn | { locked: true; account?: Account | 
 interface Reading {
   plan: string | null;
   windows: UsageWindow[];
+  resets?: UsageResets | null;
+  credits?: UsageCredits | null;
   /** whose numbers these are, when the answer says and the sign-in did not */
   account?: Account | null;
 }
@@ -309,8 +311,8 @@ const claude: UsageProvider = {
     return found.flat();
   },
   async read(ctx, signIn) {
-    const body = await requestJson(ctx, "https://api.anthropic.com/api/oauth/usage", {
-      headers: { authorization: `Bearer ${signIn.token}`, accept: "application/json", "anthropic-beta": "oauth-2025-04-20", "user-agent": USER_AGENT },
+    const body = await requestJson(ctx, "https://api.anthropic.com/api/oauth/usage?cedar_ember=1", {
+      headers: { authorization: `Bearer ${signIn.token}`, accept: "application/json", "anthropic-beta": "oauth-2025-04-20", "user-agent": "claude-cli/2.1.0 (external, cli)" },
     });
     const windows = [
       claudeWindow(body["five_hour"], "session", null, FIVE_HOURS),
@@ -325,7 +327,68 @@ const claude: UsageProvider = {
       if (limit["kind"] !== "weekly_scoped" || !model || used === null || windows.some((window) => window.scope === model)) continue;
       windows.push({ kind: "week", scope: model, used_percent: percent(used), resets_at: isoTime(limit["resets_at"]), starts_at: null });
     }
-    return { plan: null, windows };
+
+    const cedar = record(body["cedar_ember"]);
+    const cedarGrants = Array.isArray(cedar["grants"]) ? cedar["grants"] : [];
+    const now = ctx.now();
+    let totalAvailable = 0;
+    const expiries: string[] = [];
+    for (const raw of cedarGrants) {
+      const g = record(raw);
+      if (g["paused"] === true) continue;
+      const startsAt = isoTime(g["starts_at"]);
+      if (startsAt !== null && Date.parse(startsAt) > now) continue;
+      const endsAt = isoTime(g["ends_at"]) ?? isoTime(g["expires_at"]);
+      if (endsAt !== null && Date.parse(endsAt) <= now) continue;
+      const status = text(g["status"]);
+      if (status !== null && status !== "available") continue;
+
+      const resetsLeft = number(g["resets_left"]);
+      const count = resetsLeft !== null ? resetsLeft : 1;
+      if (count > 0) {
+        totalAvailable += count;
+        if (endsAt !== null) {
+          expiries.push(endsAt);
+        }
+      }
+    }
+    let resets: UsageResets | null = null;
+    if (totalAvailable > 0) {
+      expiries.sort();
+      resets = { available: totalAvailable, expires_at: expiries[0] ?? null };
+    }
+
+    const extraUsage = record(body["extra_usage"]);
+    const spend = record(body["spend"]);
+    let credits: UsageCredits | null = null;
+    if (extraUsage["is_enabled"] === true || spend["enabled"] === true) {
+      const currency = text(extraUsage["currency"]) ?? text(record(spend["used"])["currency"]) ?? "USD";
+      const symbol = currency === "GBP" ? "£" : currency === "EUR" ? "€" : currency === "USD" ? "$" : `${currency} `;
+      const decimals = number(extraUsage["decimal_places"]) ?? 2;
+      const divisor = Math.pow(10, decimals);
+
+      const usedMinor = number(record(spend["used"])["amount_minor"]) ?? number(extraUsage["used_credits"]);
+      const limitMinor = number(record(spend["limit"])["amount_minor"]) ?? number(extraUsage["monthly_limit"]);
+
+      let balance: string;
+      if (usedMinor !== null && limitMinor !== null) {
+        balance = `${symbol}${(usedMinor / divisor).toFixed(decimals)} / ${symbol}${(limitMinor / divisor).toFixed(decimals)}`;
+      } else if (usedMinor !== null) {
+        balance = `${symbol}${(usedMinor / divisor).toFixed(decimals)}`;
+      } else {
+        balance = "Active";
+      }
+
+      const usedPct = number(extraUsage["utilization"]) ?? number(spend["percent"]);
+      credits = {
+        label: "Extra usage",
+        balance,
+        used_percent: usedPct !== null ? percent(usedPct) : null,
+        resets_at: null,
+      };
+    }
+
+    return { plan: null, windows, ...(resets ? { resets } : {}), ...(credits ? { credits } : {}) };
   },
 };
 
@@ -378,7 +441,53 @@ const codex: UsageProvider = {
     const now = ctx.now();
     const windows = [codexWindow(limits["primary_window"], now), codexWindow(limits["secondary_window"], now)]
       .filter((window): window is UsageWindow => window !== null);
-    return { plan: text(body["plan_type"]), windows };
+
+    const rateLimitResets = record(body["rate_limit_reset_credits"]);
+    const availableResets = number(rateLimitResets["available_count"]) ?? 0;
+    let resets: UsageResets | null = null;
+    if (availableResets > 0) {
+      let soonestExpiry: string | null = null;
+      try {
+        const creditsBody = await requestJson(ctx, "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits", {
+          headers: {
+            authorization: `Bearer ${signIn.token}`, accept: "application/json", "user-agent": USER_AGENT,
+            ...(signIn.chatgptAccount ? { "chatgpt-account-id": signIn.chatgptAccount } : {}),
+          },
+        });
+        const items = Array.isArray(creditsBody["credits"]) ? creditsBody["credits"] : [];
+        const expiries = items
+          .map(record)
+          .filter((c) => text(c["status"]) === "available")
+          .map((c) => isoTime(c["expires_at"]))
+          .filter((t): t is string => t !== null)
+          .sort();
+        soonestExpiry = expiries[0] ?? null;
+      } catch (error) {
+        if (error instanceof UsageHttpError && error.status === 429) throw error;
+        // secondary endpoint failed or unavailable, keep available count
+      }
+      resets = { available: availableResets, expires_at: soonestExpiry };
+    }
+
+    const creditsObj = record(body["credits"]);
+    let credits: UsageCredits | null = null;
+    const hasCredits = creditsObj["has_credits"] === true;
+    const unlimited = creditsObj["unlimited"] === true;
+    const rawBalance = text(creditsObj["balance"]);
+    const balanceNum = number(creditsObj["balance"]);
+    if (unlimited) {
+      credits = { label: "Credits", balance: "Unlimited", used_percent: null, resets_at: null };
+    } else if (hasCredits || (rawBalance !== null && rawBalance !== "0") || (balanceNum !== null && balanceNum > 0)) {
+      const formattedBalance = balanceNum !== null ? `$${balanceNum.toFixed(2)}` : (rawBalance ?? "Available");
+      credits = { label: "Flex credits", balance: formattedBalance, used_percent: null, resets_at: null };
+    }
+
+    return {
+      plan: text(body["plan_type"]),
+      windows,
+      ...(resets ? { resets } : {}),
+      ...(credits ? { credits } : {}),
+    };
   },
 };
 
@@ -440,7 +549,27 @@ const cursor: UsageProvider = {
     const windows = [[used, null], [number(plan["autoPercentUsed"]), "Cursor models"], [number(plan["apiPercentUsed"]), "Other models"]]
       .filter((entry): entry is [number, string | null] => entry[0] !== null)
       .map(([share, scope]): UsageWindow => ({ kind: "month", scope, used_percent: percent(share), resets_at: resetsAt, starts_at: null }));
-    return { plan: null, windows };
+    const onDemandLimit = number(plan["onDemandLimit"]);
+    const onDemandUsed = number(plan["onDemandUsed"]);
+    const bonusCredits = number(body["bonusCredits"]) ?? number(body["credits"]);
+    let credits: UsageCredits | null = null;
+    if (onDemandLimit !== null && onDemandLimit > 0) {
+      const usedPct = onDemandUsed !== null ? percent((onDemandUsed / onDemandLimit) * 100) : null;
+      credits = {
+        label: "Extra usage",
+        balance: onDemandUsed !== null ? `$${(onDemandUsed / 100).toFixed(2)} / $${(onDemandLimit / 100).toFixed(2)}` : `$${(onDemandLimit / 100).toFixed(2)}`,
+        used_percent: usedPct,
+        resets_at: resetsAt,
+      };
+    } else if (bonusCredits !== null && bonusCredits > 0) {
+      credits = {
+        label: "Credits",
+        balance: `${bonusCredits} credits`,
+        used_percent: null,
+        resets_at: null,
+      };
+    }
+    return { plan: null, windows, ...(credits ? { credits } : {}) };
   },
 };
 
@@ -954,7 +1083,10 @@ export class UsageService {
     const kept = previous !== null && (!found.account || previous.key === identity(null).key) ? previous : null;
     const keep = (problem: UsageProblem, plan: string | null, wait: number) => settle({
       id: provider.id, ...(kept ? { key: kept.key, account: kept.account } : identity(null)),
-      plan: kept?.plan ?? plan, windows: kept?.windows ?? [], problem, checked_at: kept?.checked_at ?? null,
+      plan: kept?.plan ?? plan, windows: kept?.windows ?? [],
+      ...(kept?.resets ? { resets: kept.resets } : {}),
+      ...(kept?.credits ? { credits: kept.credits } : {}),
+      problem, checked_at: kept?.checked_at ?? null,
     }, wait);
     if ("locked" in found) return keep("locked", null, FRESH_MS);
     const signIn: SignIn = found;
@@ -968,7 +1100,10 @@ export class UsageService {
       const reading = await provider.read(this.ctx, signIn);
       if (reading === null) return settle(null, FRESH_MS);
       return settle({
-        id: provider.id, ...identity(reading.account), plan: reading.plan ?? signIn.plan ?? null, windows: reading.windows, problem: null, checked_at: new Date(now).toISOString(),
+        id: provider.id, ...identity(reading.account), plan: reading.plan ?? signIn.plan ?? null, windows: reading.windows,
+        ...(reading.resets ? { resets: reading.resets } : {}),
+        ...(reading.credits ? { credits: reading.credits } : {}),
+        problem: null, checked_at: new Date(now).toISOString(),
       }, FRESH_MS);
     } catch (error) {
       if (error instanceof UsageHttpError && (error.status === 401 || error.status === 403)) return keep("expired", signIn.plan ?? null, RETRY_MS);
