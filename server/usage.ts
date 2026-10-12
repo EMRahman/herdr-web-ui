@@ -312,7 +312,7 @@ const claude: UsageProvider = {
   },
   async read(ctx, signIn) {
     const body = await requestJson(ctx, "https://api.anthropic.com/api/oauth/usage?cedar_ember=1", {
-      headers: { authorization: `Bearer ${signIn.token}`, accept: "application/json", "anthropic-beta": "oauth-2025-04-20", "user-agent": USER_AGENT },
+      headers: { authorization: `Bearer ${signIn.token}`, accept: "application/json", "anthropic-beta": "oauth-2025-04-20", "user-agent": "claude-cli/2.1.0 (external, cli)" },
     });
     const windows = [
       claudeWindow(body["five_hour"], "session", null, FIVE_HOURS),
@@ -330,17 +330,32 @@ const claude: UsageProvider = {
 
     const cedar = record(body["cedar_ember"]);
     const cedarGrants = Array.isArray(cedar["grants"]) ? cedar["grants"] : [];
-    const availableCedar = cedarGrants.filter((g) => {
-      const status = text(record(g)["status"]);
-      return status === "available" || status === null;
-    });
+    const now = ctx.now();
+    let totalAvailable = 0;
+    const expiries: string[] = [];
+    for (const raw of cedarGrants) {
+      const g = record(raw);
+      if (g["paused"] === true) continue;
+      const startsAt = isoTime(g["starts_at"]);
+      if (startsAt !== null && Date.parse(startsAt) > now) continue;
+      const endsAt = isoTime(g["ends_at"]) ?? isoTime(g["expires_at"]);
+      if (endsAt !== null && Date.parse(endsAt) <= now) continue;
+      const status = text(g["status"]);
+      if (status !== null && status !== "available") continue;
+
+      const resetsLeft = number(g["resets_left"]);
+      const count = resetsLeft !== null ? resetsLeft : 1;
+      if (count > 0) {
+        totalAvailable += count;
+        if (endsAt !== null) {
+          expiries.push(endsAt);
+        }
+      }
+    }
     let resets: UsageResets | null = null;
-    if (availableCedar.length > 0) {
-      const expiries = availableCedar
-        .map((g) => isoTime(record(g)["expires_at"]))
-        .filter((t): t is string => t !== null)
-        .sort();
-      resets = { available: availableCedar.length, expires_at: expiries[0] ?? null };
+    if (totalAvailable > 0) {
+      expiries.sort();
+      resets = { available: totalAvailable, expires_at: expiries[0] ?? null };
     }
 
     const extraUsage = record(body["extra_usage"]);
@@ -447,7 +462,8 @@ const codex: UsageProvider = {
           .filter((t): t is string => t !== null)
           .sort();
         soonestExpiry = expiries[0] ?? null;
-      } catch {
+      } catch (error) {
+        if (error instanceof UsageHttpError && error.status === 429) throw error;
         // secondary endpoint failed or unavailable, keep available count
       }
       resets = { available: availableResets, expires_at: soonestExpiry };
