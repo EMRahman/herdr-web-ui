@@ -15,13 +15,15 @@ import { BackgroundBadge, displayPaneTitle, PlanBadge, StatusBadge } from "./Sid
 import "./AgentSidebar.css";
 
 export function ContextBadge({ percent }: { percent?: number | null }) {
+  const t = useT();
   if (percent === undefined || percent === null || isNaN(percent)) return null;
   const isHigh = percent > 50;
+  const label = t("Context: {percent}%", { percent });
   return (
     <span
       className={`agent-context-badge${isHigh ? " is-high" : ""}`}
-      title={`Context: ${percent}%`}
-      aria-label={`Context ${percent}%`}
+      title={label}
+      aria-label={label}
       data-testid="agent-context-badge"
     >
       {percent}%

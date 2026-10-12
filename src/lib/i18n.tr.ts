@@ -962,6 +962,7 @@ export const TR: Record<string, string> = {
   "Terminal scrollback": "Terminal geri kaydırma arabelleği",
   "Scroll failed: {reason}": "Kaydırma başarısız: {reason}",
   "Plan: {done} of {total} done": "Plan: {total} adımdan {done} tanesi tamamlandı",
+  "Context: {percent}%": "Bağlam: %{percent}",
   "Plan": "Plan",
   "Plan and background tasks": "Plan ve arka plan görevleri",
   "This session keeps no plan right now": "Bu oturumun şu anda bir planı yok",
