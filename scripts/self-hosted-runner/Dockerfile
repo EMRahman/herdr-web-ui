@@ -31,6 +31,10 @@ RUN curl -fsSL https://bun.sh/install | BUN_INSTALL=/tmp/bun bash -s "bun-v${BUN
  && /tmp/bun/bin/bunx playwright-core@${PLAYWRIGHT_VERSION} install-deps chromium \
  && rm -rf /tmp/bun /root/.bun /root/.cache /var/lib/apt/lists/*
 
+# Jobs check out under /w: check.ts puts herdr's socket under the workspace's .ci/, and a unix
+# socket path is limited to about 100 bytes (the default _work under actions-runner is too long).
+RUN mkdir /w && chown runner:runner /w
+
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod 0755 /entrypoint.sh
 

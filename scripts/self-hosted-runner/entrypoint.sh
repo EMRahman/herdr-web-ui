@@ -15,7 +15,7 @@ RUNNER_LABELS="${RUNNER_LABELS:-herdr-ci}"
   --token "$RUNNER_TOKEN" \
   --name "$RUNNER_NAME" \
   --labels "$RUNNER_LABELS" \
-  --work _work \
+  --work /w \
   --replace
 
 unset RUNNER_TOKEN
