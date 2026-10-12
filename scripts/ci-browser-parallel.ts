@@ -42,10 +42,12 @@ interface ScriptResult {
 
 async function installChromium(): Promise<string> {
   const cli = join(repo, "node_modules/playwright-core/cli.js");
-  if (process.env.CI) {
+  if (process.env.CI && process.env.RUNNER_ENVIRONMENT !== "self-hosted") {
     console.log("[setup] Installing Chromium system dependencies...");
     const deps = Bun.spawnSync(["sudo", "bash", "scripts/ci-bounded-retry.sh", "300", Bun.which("bun") ?? "bun", cli, "install-deps", "chromium"], { cwd: repo, stdio: ["ignore", "inherit", "inherit"] });
     if (deps.exitCode !== 0) throw new Error("Failed to install Chromium system dependencies");
+  } else if (process.env.CI) {
+    console.log("[setup] Self-hosted runner: Chromium system libraries come from the runner image");
   }
   console.log("[setup] Installing Chromium browser...");
   const install = Bun.spawnSync(["bun", cli, "install", "chromium"], { cwd: repo, stdio: ["ignore", "inherit", "inherit"] });

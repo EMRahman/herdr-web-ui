@@ -41,10 +41,13 @@ if [ -n "${CI:-}${CHECK_DIR:-}" ]; then
   export CHECK_BROWSER_EVIDENCE_DIR="${CHECK_DIR:-.ci}/browser-evidence"
   mkdir -p "$UI_EVIDENCE_DIR" "$CHECK_BROWSER_EVIDENCE_DIR"
 fi
-# CI's runner image has none of Chromium's system libraries; a PC is not asked for sudo
-if [ -n "${CI:-}" ]; then
+# GitHub-hosted CI runners need Chromium's system libraries; a PC is not asked for sudo
+if [ -n "${CI:-}" ] && [ "${RUNNER_ENVIRONMENT:-}" != "self-hosted" ]; then
   # as root, so a timed-out attempt's apt can be killed (an unprivileged timeout cannot SIGKILL root's apt)
   sudo bash scripts/ci-bounded-retry.sh 300 "$(command -v bun)" node_modules/playwright-core/cli.js install-deps chromium
+  bun node_modules/playwright-core/cli.js install chromium
+elif [ -n "${CI:-}" ]; then
+  echo "[setup] Self-hosted runner: Chromium system libraries come from the runner image"
   bun node_modules/playwright-core/cli.js install chromium
 else
   bun node_modules/playwright-core/cli.js install chromium
