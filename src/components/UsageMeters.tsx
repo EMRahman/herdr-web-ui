@@ -88,7 +88,44 @@ function Provider({ usage, now, count, paced }: { usage: ProviderUsage; now: num
           </div>
         );
       })}
-      {usage.windows.length === 0 && !problem && <p className="usage-note">{t("No limits reported")}</p>}
+      {usage.credits && (() => {
+        const reset = formatResetIn(usage.credits.resets_at ?? null, now);
+        return (
+          <div className={`usage-row usage-row-credits${usage.credits.used_percent !== null && usage.credits.used_percent !== undefined && usage.credits.used_percent >= HIGH_PERCENT ? " is-high" : ""}`}>
+            <span className="usage-row-label">{usage.credits.label === "Extra usage" ? t("Extra usage") : t("Usage credits")}</span>
+            {reset && (
+              <span className="usage-row-reset">{t("Resets in {time}", { time: reset })}</span>
+            )}
+            <span className="usage-row-value">{usage.credits.balance}</span>
+            {usage.credits.used_percent !== null && usage.credits.used_percent !== undefined && (
+              <span
+                className="usage-bar"
+                role="meter"
+                aria-label={usage.credits.label === "Extra usage" ? t("Extra usage") : t("Usage credits")}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={count === "left" ? Math.round((100 - usage.credits.used_percent) * 10) / 10 : usage.credits.used_percent}
+                aria-valuetext={`${count === "left" ? Math.round((100 - usage.credits.used_percent) * 10) / 10 : usage.credits.used_percent}%`}
+              >
+                <span style={{ width: (count === "left" ? 100 - usage.credits.used_percent : usage.credits.used_percent) > 0 ? `max(4px, ${(count === "left" ? 100 - usage.credits.used_percent : usage.credits.used_percent)}%)` : 0 }} />
+              </span>
+            )}
+          </div>
+        );
+      })()}
+      {usage.resets && usage.resets.available > 0 && (() => {
+        const expires = formatResetIn(usage.resets.expires_at, now);
+        return (
+          <div className="usage-row usage-row-resets">
+            <span className="usage-row-label">{t("Rate limit resets")}</span>
+            {expires && (
+              <span className="usage-row-reset">{t("Expires in {time}", { time: expires })}</span>
+            )}
+            <span className="usage-row-value">{t("{n} available", { n: usage.resets.available })}</span>
+          </div>
+        );
+      })()}
+      {usage.windows.length === 0 && !usage.credits && !usage.resets && !problem && <p className="usage-note">{t("No limits reported")}</p>}
     </section>
   );
 }
