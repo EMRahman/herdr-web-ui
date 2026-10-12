@@ -188,7 +188,7 @@ function ContextRing({ context, shown, readOnly = false, onToggle, onCompact }: 
   const detail = t("{used} of {window} tokens", { used: formatTokens(context.used), window: formatTokens(context.window) });
   const radius = 6;
   const circumference = 2 * Math.PI * radius;
-  if (readOnly) return <span className={`composer-context composer-context-readonly${left <= 20 ? " is-low" : ""}`}>
+  if (readOnly) return <span className={`composer-context composer-context-readonly${left <= 50 ? " is-low" : ""}`}>
     <svg viewBox="0 0 16 16" aria-hidden="true">
       <circle className="composer-context-track" cx="8" cy="8" r={radius} />
       <circle className="composer-context-used" cx="8" cy="8" r={radius}
@@ -200,7 +200,7 @@ function ContextRing({ context, shown, readOnly = false, onToggle, onCompact }: 
     <>
     <button
       type="button"
-      className={`composer-context${left <= 20 ? " is-low" : ""}`}
+      className={`composer-context${left <= 50 ? " is-low" : ""}`}
       aria-label={`${label} · ${detail}`}
       title={`${label} · ${detail}`}
       aria-expanded={shown}
