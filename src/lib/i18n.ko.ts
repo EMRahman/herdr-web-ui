@@ -1024,6 +1024,7 @@ export const KO: Record<string, string> = {
   "Tab order did not refresh. Try again.": "탭 순서가 갱신되지 않았습니다. 다시 시도해 주세요.",
   "Scroll failed: {reason}": "스크롤 실패: {reason}",
   "Plan: {done} of {total} done": "계획: {total}개 중 {done}개 완료",
+  "Context: {percent}%": "컨텍스트: {percent}%",
   "Plan": "계획",
   "Plan and background tasks": "계획과 백그라운드 작업",
   "This session keeps no plan right now": "이 세션은 지금 계획이 없습니다",
