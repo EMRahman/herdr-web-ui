@@ -14,6 +14,15 @@ import { AgentMark, hasAgentMark } from "./AgentMark.tsx";
 import { BackgroundBadge, displayPaneTitle, PlanBadge, StatusBadge } from "./Sidebar.tsx";
 import "./AgentSidebar.css";
 
+/**
+ * Context window usage badge in the agent roster.
+ * Consumes `pane.tokens.ctx_pct` emitted by the companion plugin
+ * `herdr-context-monitor` (https://github.com/EMRahman/herdr-context-monitor)
+ * via `herdr pane report-metadata <pane-id> '{"tokens": {"ctx_pct": <N>}}'`.
+ *
+ * Gracefully returns null if no context metrics have been reported.
+ * Highlights red (.is-high) when usage exceeds 50% (the context rot threshold).
+ */
 export function ContextBadge({ percent }: { percent?: number | null }) {
   const t = useT();
   if (percent === undefined || percent === null || isNaN(percent)) return null;

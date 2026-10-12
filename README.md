@@ -35,6 +35,12 @@ https://github.com/user-attachments/assets/d854dbb6-64bd-4eba-81c7-fbd3f525726b
 
 A browser and phone client for [herdr](https://github.com/herdrdev/herdr). Read and reply to the same agent sessions running on your computer — on desktop or phone, as chat, with the terminal when you need it.
 
+> [!NOTE]
+> **Fork Enhancements & Companion Plugins**:
+> - **Agent Context Window Badges**: Displays real-time context percentage pills for active agents in the sidebar list, alerting in bold red when usage passes 50% (the context rot threshold). This feature is powered by the companion plugin [**herdr-context-monitor**](https://github.com/EMRahman/herdr-context-monitor), which tracks session transcripts and reports `pane.tokens.ctx_pct`.
+> - **Cedar Ember Usage Meters**: Live tracking of token usage, grant balances, and rate-limit reset credits.
+
+
 <table>
   <tr>
     <td width="50%" valign="top">
