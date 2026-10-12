@@ -133,6 +133,48 @@ describe("providers", () => {
     expect(usage?.credits).toEqual({ label: "Flex credits", balance: "$31.84", used_percent: null, resets_at: null });
   });
 
+  it("propagates 429 from rate-limit-reset-credits endpoint and backs off", async () => {
+    signInCodex();
+    replies.set(CODEX_USAGE, {
+      body: {
+        plan_type: "pro",
+        rate_limit: {
+          primary_window: { used_percent: 12, limit_window_seconds: 18_000, reset_at: NOW / 1000 + 3600 },
+        },
+        rate_limit_reset_credits: { available_count: 2 },
+      },
+    });
+    replies.set("https://chatgpt.com/backend-api/wham/rate-limit-reset-credits", {
+      status: 429,
+      headers: { "retry-after": "120" },
+      body: {},
+    });
+    const report = await new UsageService(context(), only("codex")).report();
+    const [usage] = report.providers;
+    expect(usage?.problem).toBe("rate_limited");
+  });
+
+  it("retains reset count when reset-details endpoint fails with non-429 error", async () => {
+    signInCodex();
+    replies.set(CODEX_USAGE, {
+      body: {
+        plan_type: "pro",
+        rate_limit: {
+          primary_window: { used_percent: 12, limit_window_seconds: 18_000, reset_at: NOW / 1000 + 3600 },
+        },
+        rate_limit_reset_credits: { available_count: 2 },
+      },
+    });
+    replies.set("https://chatgpt.com/backend-api/wham/rate-limit-reset-credits", {
+      status: 500,
+      body: {},
+    });
+    const report = await new UsageService(context(), only("codex")).report();
+    const [usage] = report.providers;
+    expect(usage?.problem).toBeNull();
+    expect(usage?.resets).toEqual({ available: 2, expires_at: null });
+  });
+
   it("reads Claude extra usage credits and rate limit resets", async () => {
     keychain.set("Claude Code-credentials|me", { status: "found", value: JSON.stringify({ claudeAiOauth: { accessToken: "k", expiresAt: NOW + HOUR } }) });
     replies.set("https://api.anthropic.com/api/oauth/usage", {
@@ -140,7 +182,10 @@ describe("providers", () => {
         five_hour: { utilization: 10, resets_at: null },
         cedar_ember: {
           grants: [
-            { status: "available", expires_at: "2026-11-01T00:00:00Z" },
+            { resets_left: 2, paused: false, starts_at: "2026-09-01T00:00:00Z", ends_at: "2026-11-01T00:00:00Z" },
+            { resets_left: 1, paused: true, ends_at: "2026-10-15T00:00:00Z" },
+            { resets_left: 3, paused: false, starts_at: "2026-12-01T00:00:00Z", ends_at: "2026-12-31T00:00:00Z" },
+            { resets_left: 1, paused: false, ends_at: "2026-09-01T00:00:00Z" },
           ],
         },
         extra_usage: {
@@ -160,7 +205,8 @@ describe("providers", () => {
       },
     });
     const [usage] = (await new UsageService(context("darwin"), only("claude")).report()).providers;
-    expect(usage?.resets).toEqual({ available: 1, expires_at: "2026-11-01T00:00:00.000Z" });
+    expect((requests[0]!.init.headers as Record<string, string>)["user-agent"]).toBe("claude-cli/2.1.0 (external, cli)");
+    expect(usage?.resets).toEqual({ available: 2, expires_at: "2026-11-01T00:00:00.000Z" });
     expect(usage?.credits).toEqual({ label: "Extra usage", balance: "£12.19 / £15.39", used_percent: 79.2, resets_at: null });
   });
 

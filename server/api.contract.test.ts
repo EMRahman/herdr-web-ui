@@ -290,6 +290,72 @@ describe("usage API", () => {
     } finally { app.stop(); rmSync(usageState, { recursive: true, force: true }); }
   });
 
+  it("serializes rate limit resets and credits in provider reports", async () => {
+    const usageState = mkdtempSync(join(tmpdir(), "herdr-usage-resets-contract-"));
+    const codexDir = join(usageState, ".codex");
+    mkdirSync(codexDir, { recursive: true });
+    const payload = Buffer.from(JSON.stringify({
+      exp: Date.parse("2026-10-06T12:00:00Z") / 1000,
+      "https://api.openai.com/auth": { chatgpt_plan_type: "pro", chatgpt_user_id: "user-contract" },
+      "https://api.openai.com/profile": { email: "contract@example.com" },
+    })).toString("base64url");
+    writeFileSync(join(codexDir, "auth.json"), JSON.stringify({
+      tokens: { access_token: `eyJhbGciOiJub25lIn0.${payload}.`, refresh_token: "r" },
+    }));
+
+    const usage = new UsageService({
+      home: usageState, env: {}, platform: "linux", now: () => Date.parse("2026-10-06T00:00:00Z"),
+      keychain: async () => ({ status: "missing" }), run: async () => null,
+      fetch: async (url) => {
+        if (url.includes("/wham/usage")) {
+          return Response.json({
+            plan_type: "pro",
+            rate_limit: {
+              primary_window: { used_percent: 25, limit_window_seconds: 18_000, reset_at: "2026-10-06T05:00:00Z" },
+            },
+            rate_limit_reset_credits: { available_count: 3 },
+            credits: { has_credits: true, balance: "42.50" },
+          });
+        }
+        if (url.includes("/wham/rate-limit-reset-credits")) {
+          return Response.json({
+            credits: [
+              { status: "available", expires_at: "2026-10-20T12:00:00Z" },
+              { status: "available", expires_at: "2026-10-15T08:00:00Z" },
+            ],
+          });
+        }
+        throw new Error(`unexpected url ${url}`);
+      },
+    }, USAGE_PROVIDERS.filter((provider) => provider.id === "codex"));
+
+    const app = createServer({ port: 0, stateDir: usageState, usage });
+    try {
+      const response = await fetch(`http://localhost:${app.port}/api/usage`);
+      expect(response.status).toBe(200);
+      const report = await response.json() as UsageReport;
+      expect(report.providers).toMatchObject([{
+        id: "codex",
+        account: "contract@example.com",
+        plan: "pro",
+        problem: null,
+        resets: {
+          available: 3,
+          expires_at: "2026-10-15T08:00:00.000Z",
+        },
+        credits: {
+          label: "Flex credits",
+          balance: "$42.50",
+          used_percent: null,
+          resets_at: null,
+        },
+      }]);
+    } finally {
+      app.stop();
+      rmSync(usageState, { recursive: true, force: true });
+    }
+  });
+
   it("answers the report and keeps it behind the token gate", async () => {
     const usageState = mkdtempSync(join(tmpdir(), "herdr-usage-auth-"));
     const usage = new UsageService(undefined, []);
