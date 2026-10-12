@@ -1,0 +1,41 @@
+name: Set up CI toolchain
+description: Bun (with its dependency cache), and optionally Node 22 and the checksum-pinned herdr. Callers check out the repository first.
+inputs:
+  bun-version:
+    description: Bun version for ci.yml, pages.yml and release.yml; the one place it is set.
+    required: false
+    default: '1.4.2'
+  node:
+    description: "'true' installs Node 22 (the PTY sidecar runs on it)."
+    required: false
+    default: 'false'
+  herdr:
+    description: "'true' installs the checksum-pinned herdr 0.9.3 (Linux x86_64) on PATH."
+    required: false
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: ${{ inputs.bun-version }}
+    - if: inputs.node == 'true'
+      uses: actions/setup-node@v7
+      with:
+        node-version: '22'
+    - name: Cache Bun dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.bun/install/cache
+        key: bun-${{ runner.os }}-${{ runner.arch }}-${{ inputs.bun-version }}-${{ hashFiles('bun.lock') }}
+        restore-keys: |
+          bun-${{ runner.os }}-${{ runner.arch }}-${{ inputs.bun-version }}-
+    - name: Install checksum-pinned herdr 0.9.3
+      if: inputs.herdr == 'true'
+      shell: bash
+      run: |
+        mkdir -p "$RUNNER_TEMP/herdr-bin"
+        curl --fail --location --retry 3 https://github.com/herdrdev/herdr/releases/download/v0.9.3/herdr-linux-x86_64 -o "$RUNNER_TEMP/herdr-bin/herdr"
+        echo "18a8dc65f1c2fa485884344356dea1cfd911c6f06cf46fa78e193f4087f4dba7  $RUNNER_TEMP/herdr-bin/herdr" | sha256sum --check
+        chmod +x "$RUNNER_TEMP/herdr-bin/herdr"
+        echo "$RUNNER_TEMP/herdr-bin" >> "$GITHUB_PATH"

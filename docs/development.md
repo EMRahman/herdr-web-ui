@@ -331,7 +331,7 @@ the page and the data follows. The SoftwareApplication data is written in the pa
 The build also copies the retained `site/assets/` and `site/media/` files, including the film linked
 from the README and its chat loop. These remain available at their existing URLs even though the
 homepage uses the desktop and phone demos.
-`.github/workflows/pages.yml` installs ffmpeg and runs on pushes to `main` and manual dispatches from
+`.github/workflows/pages.yml` installs ffmpeg when the runner lacks it and runs on pushes to `main` and manual dispatches from
 `main`. Reusable CI validation and the site build run in parallel against the same triggering SHA,
 and deployment requires both to succeed. Deployments are serialized. Immediately before deploying,
 the workflow checks that the validated SHA is still the latest `main` commit; it fails closed if it is
@@ -472,6 +472,37 @@ automatically covered. Evidence failures never replace the original test failure
 CI uploads nested failure artifacts alongside herdr's `test-server.log`; reports and command
 logs are retained for successful runs too. All captures use isolated fixtures, never live-user
 pages or credentials.
+
+### Self-hosted runner
+
+Linux CI/CD jobs run on GitHub-hosted `ubuntu-24.04` unless the repository variable
+`CI_SELF_HOSTED_LABELS` holds a JSON array of runner labels that contains `"self-hosted"`, for
+example `["self-hosted","linux","x64","herdr-ci"]`. Set, it routes:
+
+- in `ci.yml`: Fast checks, Integration tests and both Browser regression jobs;
+- in `pages.yml`: the site build and the deploy;
+- in `release.yml`: the preflight and publish jobs.
+
+Detect changes, the Integration and browser summary, the Windows and macOS jobs,
+`remote-bundles.yml` and `windows-install.yml` always stay GitHub-hosted.
+
+In `ci.yml`, Detect changes picks the runner with `scripts/ci-runner-route.sh`. A fork pull request
+always gets `ubuntu-24.04`, whatever the variable says. Otherwise the `self_hosted_labels`
+workflow_dispatch input, when not empty, overrides the variable for that one manual run. A value
+that is not a non-empty array of strings containing `"self-hosted"` fails the job instead of
+falling back. `pages.yml` and `release.yml` read the variable directly.
+
+Only a `pull_request` may skip the heavy jobs as docs-only, and only when every changed file is
+under `docs/`, ends in `.md` or `.txt`, is the root `LICENSE` or sits under
+`.github/ISSUE_TEMPLATE/`. Pushes, dispatches and runs called from `release.yml` or `pages.yml`
+always validate in full.
+
+The runner is an ephemeral Docker container that runs one job and exits. Its image ships the
+Chromium system libraries, ffmpeg, git, curl, jq, unzip, xz-utils and CA certificates and has no
+sudo, so jobs check `RUNNER_ENVIRONMENT=self-hosted` and skip the apt steps they need on a hosted
+runner. The Bun version is set once, in `.github/actions/setup-ci/action.yml`, the composite action
+`ci.yml`, `pages.yml` and `release.yml` set up with. Setup, routing and the security model are in
+[scripts/self-hosted-runner/README.md](../scripts/self-hosted-runner/README.md).
 
 `scripts/ci-tests.ts` discovers all `.test.ts` files under src/shared/server/scripts.
 Files named `*.contract.test.ts`, tests under `server/herdr/` and `server/pty/`, and
