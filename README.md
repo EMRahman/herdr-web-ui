@@ -35,6 +35,29 @@ https://github.com/user-attachments/assets/d854dbb6-64bd-4eba-81c7-fbd3f525726b
 
 A browser and phone client for [herdr](https://github.com/herdrdev/herdr). Read and reply to the same agent sessions running on your computer — on desktop or phone, as chat, with the terminal when you need it.
 
+> [!NOTE]
+> **Fork Enhancements & Companion Plugins**:
+> - **Agent Context Window Badges**: Displays real-time context percentage pills for active agents in the sidebar list, alerting in bold red when usage passes 50% (the context rot threshold). This feature is powered by the companion plugin [**herdr-context-monitor**](https://github.com/EMRahman/herdr-context-monitor), which tracks session transcripts and reports `pane.tokens.ctx_pct`.
+> - **Cedar Ember Usage Meters**: Live tracking of token usage, grant balances, and rate-limit reset credits.
+>
+> **Installing This Fork**:
+> To get these enhancements instead of the upstream build, install this repository directly or run from a local checkout:
+> ```bash
+> # Install this enhanced fork:
+> herdr plugin install EMRahman/herdr-web-ui
+>
+> # Install the companion context monitor plugin:
+> herdr plugin install EMRahman/herdr-context-monitor
+> ```
+> Or run from a local git checkout:
+> ```bash
+> git clone https://github.com/EMRahman/herdr-web-ui.git
+> cd herdr-web-ui && bun install && bun run build
+> herdr plugin link .
+> ```
+
+
+
 <table>
   <tr>
     <td width="50%" valign="top">
@@ -108,6 +131,10 @@ Requires [Git for Windows](https://git-scm.com/download/win). Installs missing h
 Already have the prerequisites? Install just the plugin:
 
 ```bash
+# To install this enhanced fork:
+herdr plugin install EMRahman/herdr-web-ui
+
+# Or to install standard upstream:
 herdr plugin install devswha/herdr-web-ui
 ```
 
