@@ -1032,6 +1032,7 @@ export const JA: Record<string, string> = {
   "Terminal scrollback": "ターミナル履歴",
   "Scroll failed: {reason}": "スクロールに失敗しました: {reason}",
   "Plan: {done} of {total} done": "計画: {total} 件中 {done} 件完了",
+  "Context: {percent}%": "コンテキスト: {percent}%",
   "Plan": "計画",
   "Plan and background tasks": "計画とバックグラウンドタスク",
   "This session keeps no plan right now": "このセッションには現在計画がありません",

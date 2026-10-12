@@ -14,6 +14,23 @@ import { AgentMark, hasAgentMark } from "./AgentMark.tsx";
 import { BackgroundBadge, displayPaneTitle, PlanBadge, StatusBadge } from "./Sidebar.tsx";
 import "./AgentSidebar.css";
 
+export function ContextBadge({ percent }: { percent?: number | null }) {
+  const t = useT();
+  if (percent === undefined || percent === null || isNaN(percent)) return null;
+  const isHigh = percent > 50;
+  const label = t("Context: {percent}%", { percent });
+  return (
+    <span
+      className={`agent-context-badge${isHigh ? " is-high" : ""}`}
+      title={label}
+      aria-label={label}
+      data-testid="agent-context-badge"
+    >
+      {percent}%
+    </span>
+  );
+}
+
 interface AgentRowBodyProps {
   /** the agent's kind or name; null draws a terminal, for a shell */
   mark: string | null;
@@ -26,13 +43,14 @@ interface AgentRowBodyProps {
   backgroundTasks?: number;
   plan?: PlanSummary;
   status?: AgentStatus;
+  contextPercent?: number | null;
 }
 
 /**
  * One agent in a list: the coding agent's mark, what it is working on, who and where it is, and
  * how it is doing.
  */
-function AgentRowBody({ mark, markKind, title, name, context, backgroundTasks, plan, status }: AgentRowBodyProps) {
+function AgentRowBody({ mark, markKind, title, name, context, backgroundTasks, plan, status, contextPercent }: AgentRowBodyProps) {
   return <>
     <span className="sidebar-mark" aria-hidden="true">{mark !== null ? <AgentMark agent={mark} size={18} /> : <Terminal />}</span>
     <span className="agent-copy">
@@ -44,7 +62,12 @@ function AgentRowBody({ mark, markKind, title, name, context, backgroundTasks, p
         {context}
       </span>}
     </span>
-    <span className="agent-row-status"><BackgroundBadge count={backgroundTasks} /><PlanBadge plan={plan} /><StatusBadge status={status} compact /></span>
+    <span className="agent-row-status">
+      <ContextBadge percent={contextPercent} />
+      <BackgroundBadge count={backgroundTasks} />
+      <PlanBadge plan={plan} />
+      <StatusBadge status={status} compact />
+    </span>
   </>;
 }
 
@@ -132,10 +155,14 @@ export function AgentSidebar({ machines, selectedMachineId, selectedPaneId, stat
     const tooltip = [...new Set([pane.pane_id, title, place, markKind, name, agent?.display_agent, pane.cwd, online ? null : stateWord(machine)].filter(Boolean))].join("\n");
     const pinKey = sidebarPinKey(machine.id, pane.pane_id);
     const isPinned = pinned.includes(pinKey);
+    const rawCtx = pane.tokens?.ctx_pct;
+    const contextPercent = rawCtx !== undefined && rawCtx !== null && !isNaN(Number(rawCtx))
+      ? Number(rawCtx)
+      : null;
     return <li className={`agent-item${selected ? " is-selected" : ""}${online ? "" : " is-offline"}`} key={paneStorageId(machine.id, pane.pane_id)} data-machine={machine.id} data-pane={pane.pane_id}>
       <button type="button" className="agent-select agent-row" disabled={!online} aria-current={selected ? "true" : undefined} title={tooltip} onClick={() => onSelect(machine.id, pane.pane_id)}>
         {/* a saved roster's state is not news: a PC that is away says nothing about its agents */}
-        <AgentRowBody mark={mark} markKind={markKind} title={title} name={name} context={context} backgroundTasks={online ? pane.background_tasks : 0} plan={online ? pane.plan : undefined} status={online ? activity.status(machine.id, pane) : undefined} />
+        <AgentRowBody mark={mark} markKind={markKind} title={title} name={name} context={context} backgroundTasks={online ? pane.background_tasks : 0} plan={online ? pane.plan : undefined} status={online ? activity.status(machine.id, pane) : undefined} contextPercent={online ? contextPercent : undefined} />
       </button>
       {settings.agentPins && <button type="button" className={`agent-pin-toggle${isPinned ? " is-pinned" : ""}`} aria-label={`${t("Pin agent")}: ${[title, machineName(machine), workspace.label].filter(Boolean).join(" · ")}`} aria-pressed={isPinned} title={t(isPinned ? "Unpin agent" : "Pin agent")} data-pin-key={pinKey} onClick={(event) => setPin(pinKey, event.currentTarget)}>
         <Star aria-hidden="true" fill={isPinned ? "currentColor" : "none"} />

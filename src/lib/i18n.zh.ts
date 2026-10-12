@@ -1034,6 +1034,7 @@ export const ZH: Record<string, string> = {
   "Terminal scrollback": "终端历史",
   "Scroll failed: {reason}": "滚动失败：{reason}",
   "Plan: {done} of {total} done": "计划：已完成 {done}/{total}",
+  "Context: {percent}%": "上下文：{percent}%",
   "Plan": "计划",
   "Plan and background tasks": "计划和后台任务",
   "This session keeps no plan right now": "此会话目前没有计划",

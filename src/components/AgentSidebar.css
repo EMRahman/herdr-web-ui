@@ -229,6 +229,29 @@
   align-items: center;
 }
 
+.agent-context-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  margin-right: var(--space-2);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lh-tight);
+}
+
+.agent-context-badge.is-high {
+  background: var(--status-blocked-tint);
+  color: var(--status-blocked);
+  font-weight: var(--fw-bold, 700);
+  box-shadow: inset 0 0 0 1px var(--status-blocked);
+}
+
 .agent-item.is-offline { opacity: 0.5; }
 
 .agent-empty {
