@@ -5,7 +5,7 @@ This is a fork of [devswha/herdr-web-ui](https://github.com/devswha/herdr-web-ui
 context-window usage, visible in the sidebar at a glance.**
 
 <p align="center">
-  <img src="docs/media/fork/context-badges.png" width="320" alt="The Agents list in the sidebar. Each agent row shows a database icon and its context usage: 38%, 64%, 12%, 21% and 7%. The 64% badge is outlined in red because it is above 50%.">
+  <img src="docs/media/fork/context-badges.png" width="320" alt="The Agents list in the sidebar. The Claude Code agent shows a database icon and 38% context usage; the Codex agent shows 64%, outlined in red because it is above 50%. The other agents, on unsupported tools, show no badge.">
 </p>
 
 ### Why
@@ -16,17 +16,20 @@ so I can compact or restart them before their output degrades.
 
 ### What this fork adds
 
-- **Context badge on every agent** in the sidebar: an icon and a percentage, matching the
+- **Context badge on each supported agent** in the sidebar: an icon and a percentage, matching the
   `⛁ N%` label the plugin adds to herdr's terminal sidebar.
 - **Red above 50%**, where quality tends to drop off
   ([why 50%](https://github.com/EMRahman/herdr-context-monitor#why-highlight-usage-above-50)).
-- **Usage panel** also shows remaining rate-limit resets and extra-usage credits for Claude,
-  Codex and Cursor.
+- **Usage panel** also shows remaining rate-limit resets and extra-usage credits for Claude and
+  Codex.
 
 The percentages come from my companion plugin,
 [herdr-context-monitor](https://github.com/EMRahman/herdr-context-monitor), which reads each
 agent's transcript and reports `pane.tokens.ctx_pct` through herdr's metadata API. Without the
 plugin, the sidebar looks the same as upstream.
+
+Tested with **Claude Code**, **Codex** and **Antigravity CLI** (`agy`). Pi is not supported yet;
+its agents show no badge.
 
 ### Installing this fork
 
