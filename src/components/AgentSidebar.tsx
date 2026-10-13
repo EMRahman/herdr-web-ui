@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, Database, Folder, Star, Terminal } from "luc
 import type { Machine } from "../../shared/machines.ts";
 import { paneStorageId } from "../../shared/machines.ts";
 import type { AgentStatus, PlanSummary } from "../../shared/protocol.ts";
+import { contextLeftPercent, formatTokens } from "../lib/compose.ts";
 import { useT } from "../lib/i18n.ts";
 import { agentContext, agentTabName, groupRows, paneMark, sidebarAgents, type SidebarAgent } from "../lib/sidebarAgents.ts";
 import { useSettings } from "../lib/settings.ts";
@@ -16,19 +17,23 @@ import "./AgentSidebar.css";
 
 /**
  * Context window usage badge in the agent roster.
- * Consumes `pane.tokens.ctx_pct` emitted by the companion plugin
- * `herdr-context-monitor` (https://github.com/EMRahman/herdr-context-monitor)
- * via `herdr pane report-metadata <pane-id> '{"tokens": {"ctx_pct": <N>}}'`.
+ * Consumes `pane.tokens.ctx_pct`, and the `ctx_used` / `ctx_window` token counts behind it, emitted
+ * by the companion plugin `herdr-context-monitor` (https://github.com/EMRahman/herdr-context-monitor)
+ * via `herdr pane report-metadata`.
  *
- * Gracefully returns null if no context metrics have been reported.
+ * Gracefully returns null if no context metrics have been reported. On hover it says what is left
+ * and used in the composer ring's words; without the counts (an older plugin) only the percentage.
  * Highlights red (.is-high) when usage exceeds 50% (the context rot threshold).
  * The Database icon matches the plugin's TUI label, `⛁ <N>%`.
  */
-export function ContextBadge({ percent }: { percent?: number | null }) {
+export function ContextBadge({ percent, used, window }: { percent?: number | null; used?: number | null; window?: number | null }) {
   const t = useT();
   if (percent === undefined || percent === null || isNaN(percent)) return null;
   const isHigh = percent > 50;
-  const label = t("Context: {percent}%", { percent });
+  const left = used != null && window != null ? contextLeftPercent({ used, window }) : null;
+  const label = left !== null && used != null && window != null
+    ? `${t("Context {percent}% left", { percent: left })} · ${t("{used} of {window} tokens", { used: formatTokens(used), window: formatTokens(window) })}`
+    : t("Context: {percent}%", { percent });
   return (
     <span
       className={`agent-context-badge${isHigh ? " is-high" : ""}`}
@@ -39,6 +44,13 @@ export function ContextBadge({ percent }: { percent?: number | null }) {
       <Database aria-hidden="true" />{percent}%
     </span>
   );
+}
+
+/** A numeric pane token the context monitor reported, or null when it is absent or not a number. */
+function tokenNumber(value: unknown): number | null {
+  if (value === undefined || value === null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 interface AgentRowBodyProps {
@@ -54,13 +66,15 @@ interface AgentRowBodyProps {
   plan?: PlanSummary;
   status?: AgentStatus;
   contextPercent?: number | null;
+  contextUsed?: number | null;
+  contextWindow?: number | null;
 }
 
 /**
  * One agent in a list: the coding agent's mark, what it is working on, who and where it is, and
  * how it is doing.
  */
-function AgentRowBody({ mark, markKind, title, name, context, backgroundTasks, plan, status, contextPercent }: AgentRowBodyProps) {
+function AgentRowBody({ mark, markKind, title, name, context, backgroundTasks, plan, status, contextPercent, contextUsed, contextWindow }: AgentRowBodyProps) {
   return <>
     <span className="sidebar-mark" aria-hidden="true">{mark !== null ? <AgentMark agent={mark} size={18} /> : <Terminal />}</span>
     <span className="agent-copy">
@@ -73,7 +87,7 @@ function AgentRowBody({ mark, markKind, title, name, context, backgroundTasks, p
       </span>}
     </span>
     <span className="agent-row-status">
-      <ContextBadge percent={contextPercent} />
+      <ContextBadge percent={contextPercent} used={contextUsed} window={contextWindow} />
       <BackgroundBadge count={backgroundTasks} />
       <PlanBadge plan={plan} />
       <StatusBadge status={status} compact />
@@ -165,14 +179,13 @@ export function AgentSidebar({ machines, selectedMachineId, selectedPaneId, stat
     const tooltip = [...new Set([pane.pane_id, title, place, markKind, name, agent?.display_agent, pane.cwd, online ? null : stateWord(machine)].filter(Boolean))].join("\n");
     const pinKey = sidebarPinKey(machine.id, pane.pane_id);
     const isPinned = pinned.includes(pinKey);
-    const rawCtx = pane.tokens?.ctx_pct;
-    const contextPercent = rawCtx !== undefined && rawCtx !== null && !isNaN(Number(rawCtx))
-      ? Number(rawCtx)
-      : null;
+    const contextPercent = tokenNumber(pane.tokens?.ctx_pct);
+    const contextUsed = tokenNumber(pane.tokens?.ctx_used);
+    const contextWindow = tokenNumber(pane.tokens?.ctx_window);
     return <li className={`agent-item${selected ? " is-selected" : ""}${online ? "" : " is-offline"}`} key={paneStorageId(machine.id, pane.pane_id)} data-machine={machine.id} data-pane={pane.pane_id}>
       <button type="button" className="agent-select agent-row" disabled={!online} aria-current={selected ? "true" : undefined} title={tooltip} onClick={() => onSelect(machine.id, pane.pane_id)}>
         {/* a saved roster's state is not news: a PC that is away says nothing about its agents */}
-        <AgentRowBody mark={mark} markKind={markKind} title={title} name={name} context={context} backgroundTasks={online ? pane.background_tasks : 0} plan={online ? pane.plan : undefined} status={online ? activity.status(machine.id, pane) : undefined} contextPercent={online ? contextPercent : undefined} />
+        <AgentRowBody mark={mark} markKind={markKind} title={title} name={name} context={context} backgroundTasks={online ? pane.background_tasks : 0} plan={online ? pane.plan : undefined} status={online ? activity.status(machine.id, pane) : undefined} contextPercent={online ? contextPercent : undefined} contextUsed={contextUsed} contextWindow={contextWindow} />
       </button>
       {settings.agentPins && <button type="button" className={`agent-pin-toggle${isPinned ? " is-pinned" : ""}`} aria-label={`${t("Pin agent")}: ${[title, machineName(machine), workspace.label].filter(Boolean).join(" · ")}`} aria-pressed={isPinned} title={t(isPinned ? "Unpin agent" : "Pin agent")} data-pin-key={pinKey} onClick={(event) => setPin(pinKey, event.currentTarget)}>
         <Star aria-hidden="true" fill={isPinned ? "currentColor" : "none"} />
