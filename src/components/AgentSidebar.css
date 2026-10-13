@@ -234,6 +234,7 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
+  gap: var(--space-1);
   margin-right: var(--space-2);
   padding: 1px 5px;
   border-radius: var(--radius-sm);
@@ -243,6 +244,11 @@
   font-size: var(--fs-2xs);
   font-variant-numeric: tabular-nums;
   line-height: var(--lh-tight);
+}
+
+.agent-context-badge svg {
+  width: var(--space-3);
+  height: var(--space-3);
 }
 
 .agent-context-badge.is-high {
