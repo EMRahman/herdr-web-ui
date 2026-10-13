@@ -1,5 +1,5 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { ChevronDown, ChevronRight, Folder, Star, Terminal } from "lucide-react";
+import { ChevronDown, ChevronRight, Database, Folder, Star, Terminal } from "lucide-react";
 
 import type { Machine } from "../../shared/machines.ts";
 import { paneStorageId } from "../../shared/machines.ts";
@@ -22,6 +22,7 @@ import "./AgentSidebar.css";
  *
  * Gracefully returns null if no context metrics have been reported.
  * Highlights red (.is-high) when usage exceeds 50% (the context rot threshold).
+ * The Database icon matches the plugin's TUI label, `⛁ <N>%`.
  */
 export function ContextBadge({ percent }: { percent?: number | null }) {
   const t = useT();
@@ -35,7 +36,7 @@ export function ContextBadge({ percent }: { percent?: number | null }) {
       aria-label={label}
       data-testid="agent-context-badge"
     >
-      {percent}%
+      <Database aria-hidden="true" />{percent}%
     </span>
   );
 }
