@@ -10,7 +10,8 @@ const shown = (blocks: MarkdownBlock[]): string => JSON.stringify(blocks);
 describe("HTML blocks in a markdown file", () => {
   it("reads the README's header as centered markdown, never as tag text", () => {
     const readme = readFileSync(join(import.meta.dir, "../../README.md"), "utf8");
-    const head = readme.slice(0, readme.indexOf("\n## "));
+    const start = readme.indexOf("# herdr web ui\n");
+    const head = readme.slice(start, readme.indexOf("\n## ", start));
     const blocks = parseMarkdown(head, 0, true);
     expect(shown(blocks)).not.toContain("<p");
     expect(shown(blocks)).not.toContain("<a ");
