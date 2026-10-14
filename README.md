@@ -12,14 +12,14 @@ This is a fork of [devswha/herdr-web-ui](https://github.com/devswha/herdr-web-ui
 ### Why
 
 - **Context monitoring**: Agents become less reliable as their context window fills. Upstream shows context usage only for the pane currently in focus. When multiple agents run simultaneously, you need to see at a glance which ones are nearing capacity so you can compact or restart them before output quality degrades.
-- **Quota & credit visibility**: Upstream's usage popover only tracks standard session and weekly percentage windows. However, Claude, Codex, and Cursor offer rate-limit refill grants, flex credits, and out-of-plan spend caps that upstream doesn't display. This fork surfaces those so you know exactly how many resets you have left, when they expire, and where your credit spending stands.
+- **Quota & credit visibility**: Upstream's usage popover tracks percentage windows (session, weekly, or monthly) for active plans. However, Claude, Codex, and Cursor also offer one-off rate-limit refill grants, flex credits, and out-of-plan spend caps that upstream doesn't display. This fork surfaces those so you know exactly how many resets you have left, when they expire, and where your credit spending stands.
 
 ### What this fork adds
 
 #### 1. Agent Context Badges
 - **Context badge on each supported agent** in the sidebar: displays a database icon and usage percentage (`⛁ N%`), matching the companion terminal plugin.
 - **Red outline above 50%**, highlighting when an agent's context is getting heavy and output quality may start to degrade ([why 50%](https://github.com/EMRahman/herdr-context-monitor#why-highlight-usage-above-50)).
-- **Tooltip with token details**: hovering over a badge reveals the exact tokens used and remaining.
+- **Tooltip with token details**: hovering over a badge displays the percentage remaining alongside formatted token counts (e.g. "Context 62% left · 76k of 200k tokens").
 - The context percentages are powered by the companion plugin [herdr-context-monitor](https://github.com/EMRahman/herdr-context-monitor). Without the plugin, the sidebar operates normally without badges. Tested with **Claude Code**, **Codex**, and **Antigravity CLI** (`agy`).
 
 #### 2. Extended Subscription Quota & Credit Tracking
