@@ -30,7 +30,7 @@ In the Usage panel (bottom-left beside Settings), this fork extracts and display
 - **Extra Usage, Spend Caps & Credits**:
   - **Claude Code**: Tracks extra-usage spend against monthly spending limits (formatted with the appropriate currency, e.g. `$12.19 / $15.39` or `£`/`€`), including a spend progress meter and cycle reset timer.
   - **Codex**: Displays **Flex credits** balance (e.g. `$31.84` or `Unlimited`).
-  - **Cursor**: Surfaces on-demand spend against monthly limits (`onDemandUsed` / `onDemandLimit`) with a visual meter, as well as bonus credit balances.
+  - **Cursor**: Surfaces on-demand spend against monthly limits (`onDemandUsed` / `onDemandLimit`) with a visual meter, or bonus credit balances when on-demand is not configured.
 
 ### Installing this fork
 
