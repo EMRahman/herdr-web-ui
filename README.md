@@ -1,8 +1,9 @@
-# herdr web ui · context fork
+# herdr web ui · context & quota fork
 
 This is a fork of [devswha/herdr-web-ui](https://github.com/devswha/herdr-web-ui), maintained by
-[@EMRahman](https://github.com/EMRahman). I forked it to add one thing I needed: **each agent's
-context-window usage, visible in the sidebar at a glance.**
+[@EMRahman](https://github.com/EMRahman). I forked it to add two essential features:
+1. **Agent context-window usage**, visible directly in the sidebar at a glance.
+2. **Extended subscription quota & credit tracking**, displaying one-off rate limit resets, extra-usage spend caps, and flex credits across providers.
 
 <p align="center">
   <img src="docs/media/fork/context-badges.png" width="320" alt="The Agents list in the sidebar. The Claude Code agent shows a database icon and 38% context usage; the Codex agent shows 64%, outlined in red because it is above 50%. The other agents, on unsupported tools, show no badge.">
@@ -10,26 +11,26 @@ context-window usage, visible in the sidebar at a glance.**
 
 ### Why
 
-Agents get less reliable as their context window fills. Upstream shows context usage only for the
-pane you have open. When several agents run at once, I want to see which ones are getting full,
-so I can compact or restart them before their output degrades.
+- **Context monitoring**: Agents become less reliable as their context window fills. Upstream shows context usage only for the pane currently in focus. When multiple agents run simultaneously, you need to see at a glance which ones are nearing capacity so you can compact or restart them before output quality degrades.
+- **Quota & credit visibility**: Upstream's usage popover tracks percentage windows (session, weekly, or monthly) for active plans. However, Claude, Codex, and Cursor also offer one-off rate-limit refill grants, flex credits, and out-of-plan spend caps that upstream doesn't display. This fork surfaces those so you know exactly how many resets you have left, when they expire, and where your credit spending stands.
 
 ### What this fork adds
 
-- **Context badge on each supported agent** in the sidebar: an icon and a percentage, matching the
-  `⛁ N%` label the plugin adds to herdr's terminal sidebar.
-- **Red above 50%**, where quality tends to drop off
-  ([why 50%](https://github.com/EMRahman/herdr-context-monitor#why-highlight-usage-above-50)).
-- **Usage panel** also shows remaining rate-limit resets and extra-usage credits for Claude and
-  Codex.
+#### 1. Agent Context Badges
+- **Context badge on each supported agent** in the sidebar: displays a database icon and usage percentage (`⛁ N%`), matching the companion terminal plugin.
+- **Red outline above 50%**, highlighting when an agent's context is getting heavy and output quality may start to degrade ([why 50%](https://github.com/EMRahman/herdr-context-monitor#why-highlight-usage-above-50)).
+- **Tooltip with token details**: hovering over a badge displays the percentage remaining alongside formatted token counts (e.g. "Context 62% left · 76k of 200k tokens").
+- The context percentages are powered by the companion plugin [herdr-context-monitor](https://github.com/EMRahman/herdr-context-monitor). Without the plugin, the sidebar operates normally without badges. Tested with **Claude Code**, **Codex**, and **Antigravity CLI** (`agy`).
 
-The percentages come from my companion plugin,
-[herdr-context-monitor](https://github.com/EMRahman/herdr-context-monitor), which reads each
-agent's transcript and reports `pane.tokens.ctx_pct` through herdr's metadata API. Without the
-plugin, the sidebar looks the same as upstream.
-
-Tested with **Claude Code**, **Codex** and **Antigravity CLI** (`agy`). Pi is not supported yet;
-its agents show no badge.
+#### 2. Extended Subscription Quota & Credit Tracking
+In the Usage panel (bottom-left beside Settings), this fork extracts and displays deeper quota metrics:
+- **Rate Limit Resets**:
+  - **Claude Code**: Tracks Cedar Ember grant resets, showing how many one-off rate limit refills are available and when the earliest grant expires (`Expires in ...`).
+  - **Codex**: Reads available rate-limit reset credits (`rate_limit_reset_credits`) and queries the earliest reset expiration deadline.
+- **Extra Usage, Spend Caps & Credits**:
+  - **Claude Code**: Tracks extra-usage spend against monthly spending limits (formatted with the appropriate currency, e.g. `$12.19 / $15.39` or `£`/`€`), including a spend progress meter and cycle reset timer.
+  - **Codex**: Displays **Flex credits** balance (e.g. `$31.84` or `Unlimited`).
+  - **Cursor**: Surfaces on-demand spend against monthly limits (`onDemandUsed` / `onDemandLimit`) with a visual meter, or bonus credit balances when on-demand is not configured.
 
 ### Installing this fork
 
